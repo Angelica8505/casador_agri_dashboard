@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casador Agricultural Market Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Mobile Navigation Toggle -->
+    <button class="nav-toggle" id="navToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Casador Agri</h2>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/dashboard" class="active"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+            <li><a href="/inventory"><i class="fas fa-box"></i> Inventory</a></li>
+            <li><a href="/sales"><i class="fas fa-shopping-cart"></i> Sales</a></li>
+            <li><a href="/deliveries"><i class="fas fa-truck"></i> Deliveries</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        <header class="mb-3">
+            <h1>Dashboard Overview</h1>
+            <p class="text-muted">Welcome to your agricultural market dashboard</p>
+        </header>
+
+        <!-- Stats Grid -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Sales</h3>
+                <p class="stat-value">₱<span id="totalSales">0</span></p>
+                <p class="stat-change positive">+12.5% from last month</p>
+            </div>
+            <div class="stat-card">
+                <h3>Products</h3>
+                <p class="stat-value"><span id="totalProducts">0</span></p>
+                <p class="stat-change">Total products in stock</p>
+            </div>
+            <div class="stat-card">
+                <h3>Pending Deliveries</h3>
+                <p class="stat-value"><span id="pendingDeliveries">0</span></p>
+                <p class="stat-change">Awaiting delivery</p>
+            </div>
+            <div class="stat-card">
+                <h3>Growth Rate</h3>
+                <p class="stat-value"><span id="growthRate">0</span>%</p>
+                <p class="stat-change positive">Monthly growth</p>
+            </div>
+        </section>
+
+        <!-- Charts Grid -->
+        <section class="dashboard-grid">
+            <!-- Sales Trend Chart -->
+            <div class="chart-container full-width">
+                <h2>Sales Trend</h2>
+                <div class="chart-wrapper">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Inventory Status Chart -->
+            <div class="chart-container">
+                <h2>Inventory Status</h2>
+                <div class="chart-wrapper">
+                    <canvas id="inventoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Delivery Status Chart -->
+            <div class="chart-container">
+                <h2>Delivery Status</h2>
+                <div class="chart-wrapper">
+                    <canvas id="deliveryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Growth Forecast Chart -->
+            <div class="chart-container full-width">
+                <h2>Growth Forecast</h2>
+                <div class="chart-wrapper">
+                    <canvas id="forecastChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/charts.js"></script>
+    <script>
+        // Mobile Navigation Toggle
+        document.getElementById('navToggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+
+        // Close sidebar when clicking outside
+        document.addEventListener('click', (e) => {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('navToggle');
+            if (!sidebar.contains(e.target) && !toggle.contains(e.target) && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+            }
+        });
+
+        // Update stats from API
+        fetch('/api/overview')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('totalSales').textContent = data.totalSales.toLocaleString();
+                document.getElementById('totalProducts').textContent = data.totalProducts.toLocaleString();
+                document.getElementById('pendingDeliveries').textContent = data.pendingDeliveries;
+                document.getElementById('growthRate').textContent = data.growthRate.toFixed(1);
+            })
+            .catch(err => console.error('Error loading overview stats:', err));
+    </script>
+</body>
+</html> 

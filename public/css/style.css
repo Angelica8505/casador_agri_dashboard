@@ -1,0 +1,203 @@
+/* Variables */
+:root {
+    --primary-green: #2F5A34;
+    --light-green: #8BC34A;
+    --pale-green: #E8F5E9;
+    --accent-green: #4CAF50;
+    --dark-green: #1B5E20;
+    --brown: #795548;
+    --light-brown: #D7CCC8;
+}
+
+/* Dashboard Layout */
+body {
+    background-color: var(--pale-green);
+    font-family: 'Roboto', sans-serif;
+}
+
+.wrapper {
+    display: flex;
+    width: 100%;
+}
+
+#sidebar {
+    min-width: 250px;
+    max-width: 250px;
+    min-height: 100vh;
+    transition: all 0.3s;
+    padding: 20px;
+    background: var(--primary-green);
+    background-image: linear-gradient(to bottom, var(--primary-green), var(--dark-green));
+}
+
+#sidebar.active {
+    margin-left: -250px;
+}
+
+#sidebar .sidebar-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#sidebar .sidebar-header h3 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+#sidebar ul.components {
+    padding: 20px 0;
+}
+
+#sidebar ul li a {
+    padding: 12px 15px;
+    font-size: 1.1em;
+    display: block;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s;
+    border-radius: 5px;
+    margin: 4px 0;
+}
+
+#sidebar ul li a:hover {
+    background: var(--light-green);
+    color: var(--dark-green);
+}
+
+#sidebar ul li.active a {
+    background: var(--accent-green);
+    color: white;
+}
+
+#content {
+    width: 100%;
+    min-height: 100vh;
+    transition: all 0.3s;
+    background-color: var(--pale-green);
+}
+
+/* Cards */
+.card {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+    height: 100%;
+    background: white;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+
+.card-title {
+    color: var(--primary-green);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.5rem;
+}
+
+/* Stats Cards */
+.stats-card .card-body {
+    background: linear-gradient(45deg, var(--primary-green), var(--accent-green));
+    color: white;
+}
+
+.stats-card .card-title {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Charts */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    flex-grow: 1;
+    padding: 10px;
+    background: white;
+    border-radius: 10px;
+}
+
+canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -250px;
+    }
+    #sidebar.active {
+        margin-left: 0;
+    }
+    #content {
+        width: 100%;
+    }
+    .chart-container {
+        height: 250px;
+    }
+}
+
+/* Dashboard Stats */
+#totalSales, #totalProducts, #pendingDeliveries, #growthRate {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 10px 0;
+    color: white;
+}
+
+/* Navbar */
+.navbar {
+    padding: 15px;
+    background: white;
+    border: none;
+    border-radius: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#sidebarCollapse {
+    background: var(--primary-green);
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+}
+
+#sidebarCollapse:hover {
+    background: var(--dark-green);
+}
+
+.navbar-text {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--primary-green);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--pale-green);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--light-green);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-green);
+}
