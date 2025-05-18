@@ -1,19 +1,29 @@
-   const express = require('express');
-   const router = express.Router();
+const express = require('express');
+const router = express.Router();
 const mysql = require('mysql2/promise');
+require('dotenv').config();
 
 // Database configuration
 const dbConfig = {
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'casador_agri_market',
+    host: process.env.MYSQL_HOST || 'localhost',
+    port: process.env.MYSQL_PORT || 3306,
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQL_DATABASE || 'casador_agri_market',
     waitForConnections: true,
     connectionLimit: 10
 };
 
 // Create connection pool
 const pool = mysql.createPool(dbConfig);
+
+// Log database connection details (excluding sensitive info)
+console.log('Database connection config:', {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    database: dbConfig.database,
+    user: dbConfig.user
+});
 
 // Error handler middleware
 const asyncHandler = fn => (req, res, next) => {
