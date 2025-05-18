@@ -65,7 +65,24 @@ app.use('/api', apiRoutes);
 
 // Serve dashboard
 app.get('/', (req, res) => {
-    res.render('dashboard');
+    try {
+        res.json({
+            success: true,
+            message: 'Casador Agricultural Dashboard',
+            status: 'healthy',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Root route error:', error);
+        res.status(500).json({
+            success: false,
+            error: {
+                message: 'Internal Server Error',
+                code: error.code || 'INTERNAL_SERVER_ERROR',
+                timestamp: new Date().toISOString()
+            }
+        });
+    }
 });
 
 // Error handling middleware

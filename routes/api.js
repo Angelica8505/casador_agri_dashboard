@@ -55,6 +55,15 @@ const sendResponse = (res, data, status = 200) => {
     });
 };
 
+// Health check endpoint
+router.get('/', (req, res) => {
+    res.json({
+        success: true,
+        message: 'API is running',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // GET /api/overview - Dashboard overview stats
 router.get('/overview', async (req, res) => {
      try {
