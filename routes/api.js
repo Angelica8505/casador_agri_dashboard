@@ -5,17 +5,33 @@ require('dotenv').config();
 
 // Database configuration
 const dbConfig = {
-    host: process.env.MYSQL_HOST || 'localhost',
-    port: process.env.MYSQL_PORT || 3306,
+    host: process.env.MYSQL_HOST || 'gondola.proxy.rlwy.net',
+    port: process.env.MYSQL_PORT || 45889,
     user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || '',
-    database: process.env.MYSQL_DATABASE || 'casador_agri_market',
+    password: process.env.MYSQL_PASSWORD || 'IAGZWBpPwSouBnKaNURJhaXYrNoMJddF',
+    database: process.env.MYSQL_DATABASE || 'railway',
     waitForConnections: true,
-    connectionLimit: 10
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    ssl: {
+        rejectUnauthorized: false
+    }
 };
 
 // Create connection pool
 const pool = mysql.createPool(dbConfig);
+
+// Test database connection
+pool.getConnection()
+    .then(connection => {
+        console.log('Database connected successfully');
+        connection.release();
+    })
+    .catch(error => {
+        console.error('Error connecting to the database:', error);
+    });
 
 // Log database connection details (excluding sensitive info)
 console.log('Database connection config:', {
@@ -100,53 +116,155 @@ router.get('/overview', async (req, res) => {
    });
 
 // GET /api/sales - Sales data for chart
-router.get('/sales', asyncHandler(async (req, res) => {
-    const [rows] = await pool.query(`
-        SELECT 
-            DATE(transaction_date) as transaction_date,
-            SUM(total_amount) as total_amount,
-            COUNT(*) as transaction_count
-        FROM sales_transactions
-        WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(transaction_date)
-        ORDER BY transaction_date
-    `);
-    res.json(rows);
-}));
+router.get('/sales', async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        try {
+            console.log('Executing sales query...');
+            const [rows] = await conn.query(`
+                SELECT 
+                    DATE(transaction_date) as transaction_date,
+                    SUM(total_amount) as total_amount,
+                    COUNT(*) as transaction_count
+                FROM sales_transactions
+                WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY DATE(transaction_date)
+                ORDER BY transaction_date
+            `);
+            
+            console.log('Sales data retrieved:', rows);
+            res.json({
+                success: true,
+                data: rows
+            });
+        } catch (error) {
+            console.error('Sales query error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch sales data: ' + error.message
+            });
+        } finally {
+            conn.release();
+        }
+    } catch (error) {
+        console.error('Database connection error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database connection failed: ' + error.message
+        });
+    }
+});
 
 // GET /api/products - Product inventory data
-router.get('/products', asyncHandler(async (req, res) => {
-    // First get all products to see what we're dealing with
-    const [allProducts] = await pool.query(`
-        SELECT 
-            product_id,
-            product_name,
-            category,
-            quantity_in_stock
-        FROM products
-        WHERE quantity_in_stock > 0
-        ORDER BY product_name, product_id
-    `);
-    
-    console.log('All products:', JSON.stringify(allProducts, null, 2));
+router.get('/products', async (req, res) => {
+    try {
+        console.log('[Products API] Attempting to connect to database...');
+        console.log('[Products API] Database config:', {
+            host: dbConfig.host,
+            port: dbConfig.port,
+            database: dbConfig.database,
+            user: dbConfig.user
+        });
+        
+        const conn = await pool.getConnection();
+        
+        try {
+            console.log('[Products API] Connected successfully, executing query...');
+            
+            // First, check if the products table exists
+            const [tables] = await conn.query(`
+                SELECT TABLE_NAME 
+                FROM information_schema.TABLES 
+                WHERE TABLE_SCHEMA = ? 
+                AND TABLE_NAME = 'products'
+            `, [dbConfig.database]);
 
-    // Now get the aggregated data with proper grouping
-    const [rows] = await pool.query(`
-        SELECT 
-            product_name,
-            category,
-            SUM(quantity_in_stock) as quantity_in_stock
-        FROM products 
-        WHERE quantity_in_stock > 0
-        GROUP BY LOWER(TRIM(product_name))
-        ORDER BY quantity_in_stock DESC
-        LIMIT 10
-    `);
-    
-    console.log('Aggregated products:', JSON.stringify(rows, null, 2));
-    
-    sendResponse(res, rows);
-}));
+            if (tables.length === 0) {
+                throw new Error('Products table does not exist');
+            }
+
+            // Then check the table structure
+            const [columns] = await conn.query(`
+                SHOW COLUMNS FROM products
+            `);
+            console.log('[Products API] Table structure:', columns);
+
+            const query = `
+                SELECT 
+                    product_id,
+                    product_name,
+                    category,
+                    COALESCE(quantity_in_stock, 0) as quantity_in_stock
+                FROM products 
+                WHERE quantity_in_stock >= 0
+                ORDER BY quantity_in_stock DESC
+                LIMIT 10
+            `;
+            console.log('[Products API] Query:', query);
+            
+            const [rows] = await conn.query(query);
+            console.log('[Products API] Query results count:', rows?.length);
+            console.log('[Products API] Sample data:', rows?.slice(0, 2));
+            
+            // Ensure we're returning an array
+            if (!Array.isArray(rows)) {
+                throw new Error('Database did not return an array of products');
+            }
+
+            if (rows.length === 0) {
+                return res.json({
+                    success: true,
+                    data: [],
+                    message: 'No products found',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Format the data for the chart
+            const formattedData = rows.map(row => ({
+                product_id: row.product_id,
+                product_name: row.product_name || 'Unknown Product',
+                category: row.category || 'Uncategorized',
+                quantity_in_stock: parseInt(row.quantity_in_stock) || 0
+            }));
+
+            console.log('[Products API] Formatted data count:', formattedData.length);
+
+            res.json({
+                success: true,
+                data: formattedData,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('[Products API] Query error:', error);
+            console.error('[Products API] Stack trace:', error.stack);
+            res.status(500).json({
+                success: false,
+                error: {
+                    message: 'Failed to fetch products data',
+                    details: error.message,
+                    code: error.code,
+                    timestamp: new Date().toISOString()
+                }
+            });
+        } finally {
+            console.log('[Products API] Releasing connection...');
+            conn.release();
+        }
+    } catch (error) {
+        console.error('[Products API] Database connection error:', error);
+        console.error('[Products API] Stack trace:', error.stack);
+        res.status(500).json({
+            success: false,
+            error: {
+                message: 'Database connection failed',
+                details: error.message,
+                code: error.code,
+                timestamp: new Date().toISOString()
+            }
+        });
+    }
+});
 
 // GET /api/debug/products - Show raw product data
 router.get('/debug/products', asyncHandler(async (req, res) => {
@@ -159,18 +277,49 @@ router.get('/debug/products', asyncHandler(async (req, res) => {
 }));
 
 // GET /api/deliveries - Delivery status data
-router.get('/deliveries', asyncHandler(async (req, res) => {
-    const [rows] = await pool.query(`
-        SELECT 
-            delivery_status,
-            COUNT(*) as count
-        FROM delivery_records
-        WHERE delivery_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-        GROUP BY delivery_status
-        ORDER BY FIELD(delivery_status, 'Pending', 'In Transit', 'Delivered')
-    `);
-    res.json(rows);
-}));
+router.get('/deliveries', async (req, res) => {
+    try {
+        console.log('Attempting to fetch delivery data...');
+        const conn = await pool.getConnection();
+        
+        try {
+            const [rows] = await conn.query(`
+                SELECT 
+                    delivery_status,
+                    COUNT(*) as count
+                FROM delivery_records
+                WHERE delivery_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY delivery_status
+                ORDER BY FIELD(delivery_status, 'Pending', 'In Transit', 'Delivered')
+            `);
+            
+            console.log('Delivery data retrieved:', {
+                rowCount: rows.length,
+                sampleData: rows.slice(0, 2)
+            });
+            
+            res.json({
+                success: true,
+                data: rows,
+                message: 'Delivery data retrieved successfully'
+            });
+        } catch (error) {
+            console.error('Database query error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch delivery data: ' + error.message
+            });
+        } finally {
+            conn.release();
+        }
+    } catch (error) {
+        console.error('Database connection error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database connection failed: ' + error.message
+        });
+    }
+});
 
 // GET /api/forecasts - Growth forecast data
 router.get('/forecasts', asyncHandler(async (req, res) => {
@@ -314,6 +463,69 @@ router.get('/stats/delivery-metrics', asyncHandler(async (req, res) => {
     `);
     sendResponse(res, rows);
 }));
+
+// Test route to verify API is working
+router.get('/test', (req, res) => {
+    res.json({ message: 'API is working' });
+});
+
+// Test route to verify database connection
+router.get('/test-connection', async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        try {
+            const [result] = await conn.query('SELECT 1 as test');
+            res.json({
+                success: true,
+                message: 'Database connection successful',
+                data: result
+            });
+        } finally {
+            conn.release();
+        }
+    } catch (error) {
+        console.error('Database connection test error:', error);
+        res.status(500).json({
+            success: false,
+            error: {
+                message: 'Database connection failed',
+                details: error.message,
+                code: error.code
+            }
+        });
+    }
+});
+
+// Test route to check tables
+router.get('/test-tables', async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        try {
+            const [tables] = await conn.query('SHOW TABLES');
+            const tableData = {};
+            
+            for (const table of tables) {
+                const tableName = table[Object.keys(table)[0]];
+                const [rows] = await conn.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+                tableData[tableName] = rows[0].count;
+            }
+            
+            res.json({
+                success: true,
+                message: 'Tables found',
+                data: tableData
+            });
+        } finally {
+            conn.release();
+        }
+    } catch (error) {
+        console.error('Table test error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to check tables: ' + error.message
+        });
+    }
+});
 
 // Error handling middleware with detailed error responses
 router.use((err, req, res, next) => {

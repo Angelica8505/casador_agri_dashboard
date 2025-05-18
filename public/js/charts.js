@@ -1,37 +1,39 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    // Chart.js Global Configuration
-    Chart.defaults.font.family = "'Roboto', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif";
-    Chart.defaults.font.size = window.innerWidth < 768 ? 10 : 12;
-    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(47, 90, 52, 0.8)';
-    Chart.defaults.plugins.legend.position = 'top';
-
-    // Theme Colors
-    const colors = {
-        primary: '#2F5A34',     // Dark green
-        secondary: '#8BC34A',   // Light green
-        accent: '#4CAF50',      // Medium green
-        warning: '#FFA000',     // Orange
-        danger: '#D32F2F',      // Red
-        background: 'rgba(139, 195, 74, 0.1)'
-    };
-
-    // Responsive font sizes
-    const getFontSize = () => window.innerWidth < 768 ? 10 : 12;
-    const getTitleSize = () => window.innerWidth < 768 ? 14 : 16;
-    
     try {
-        // Fetch data for the charts
-        console.log('Fetching chart data...');
-        const [salesData, inventoryData, deliveryData, forecastData] = await Promise.all([
-            fetch('/api/sales').then(res => res.json()),
-            fetch('/api/products').then(res => res.json()),
-            fetch('/api/deliveries').then(res => res.json()),
-            fetch('/api/forecasts').then(res => res.json())
-        ]);
+        // First check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            throw new Error('Chart.js is not loaded');
+        }
 
-        // Extract the products data from the response
-        const products = Array.isArray(inventoryData.data) ? inventoryData.data : inventoryData;
-        console.log('Products for chart:', products);
+        // Check if canvas elements exist
+        const canvasElements = {
+            sales: document.getElementById('salesChart'),
+            inventory: document.getElementById('inventoryChart'),
+            delivery: document.getElementById('deliveryChart'),
+            forecast: document.getElementById('forecastChart')
+        };
+
+        // Log canvas elements status
+        Object.entries(canvasElements).forEach(([name, element]) => {
+            console.log(`${name} canvas element:`, element ? 'Found' : 'Not found');
+            if (element && !(element instanceof HTMLCanvasElement)) {
+                console.error(`${name} element is not a canvas:`, element);
+            }
+        });
+
+        // Theme Colors
+        const colors = {
+            primary: '#2F5A34',     // Dark green
+            secondary: '#8BC34A',   // Light green
+            accent: '#4CAF50',      // Medium green
+            warning: '#FFA000',     // Orange
+            danger: '#D32F2F',      // Red
+            background: 'rgba(139, 195, 74, 0.1)'
+        };
+
+        // Responsive font sizes
+        const getFontSize = () => window.innerWidth < 768 ? 10 : 12;
+        const getTitleSize = () => window.innerWidth < 768 ? 14 : 16;
 
         // Common chart options
         const commonOptions = {
@@ -45,236 +47,80 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        font: {
-                            size: getFontSize()
-                        }
-                    }
-                },
-                y: {
-                    ticks: {
-                        font: {
-                            size: getFontSize()
-                        }
-                    }
-                }
             }
         };
 
-        // Bar Chart: Inventory Status
-        const inventoryChartCtx = document.getElementById('inventoryChart').getContext('2d');
-        new Chart(inventoryChartCtx, {
-            type: 'bar',
-            data: {
-                labels: products.map(p => p.product_name),
-                datasets: [{
-                    label: 'Current Stock',
-                    data: products.map(p => parseInt(p.quantity_in_stock)),
-                    backgroundColor: colors.secondary,
-                    borderRadius: 6,
-                    borderColor: colors.primary,
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                ...commonOptions,
-                plugins: {
-                    ...commonOptions.plugins,
-                    title: {
-                        display: true,
-                        text: 'Product Inventory Levels',
-                        font: { 
-                            size: getTitleSize(),
-                            weight: 'bold'
-                        },
-                        color: colors.primary
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => {
-                                return `Stock: ${context.raw.toLocaleString()} units`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        title: { 
-                            display: true,
-                            text: 'Products',
-                            color: colors.primary,
-                            font: {
-                                size: getFontSize()
-                            }
-                        },
-                        ticks: { 
-                            color: colors.primary,
-                            autoSkip: false,
-                            maxRotation: window.innerWidth < 768 ? 45 : 0,
-                            minRotation: window.innerWidth < 768 ? 45 : 0
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(47, 90, 52, 0.1)' },
-                        title: { 
-                            display: true,
-                            text: 'Quantity',
-                            color: colors.primary,
-                            font: {
-                                size: getFontSize()
-                            }
-                        },
-                        ticks: { 
-                            color: colors.primary,
-                            callback: (value) => value.toLocaleString()
-                        }
-                    }
-                }
-            }
-        });
-
-        // Handle window resize
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                Chart.defaults.font.size = getFontSize();
-                Chart.instances.forEach(chart => {
-                    chart.options.plugins.title.font.size = getTitleSize();
-                    chart.options.scales.x.ticks.maxRotation = window.innerWidth < 768 ? 45 : 0;
-                    chart.update();
-                });
-            }, 250);
-        });
-
-        // Line Chart: Sales Trends
-        const salesChartCtx = document.getElementById('salesChart').getContext('2d');
-        new Chart(salesChartCtx, {
-            type: 'line',
-            data: {
-                labels: salesData.map(s => {
-                    const date = new Date(s.transaction_date);
-                    return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-                }),
-                datasets: [{
-                    label: 'Sales Amount',
-                    data: salesData.map(s => s.total_amount),
-                    borderColor: colors.primary,
-                    backgroundColor: colors.background,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: colors.accent
-                }]
-            },
-            options: {
-                ...commonOptions,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Daily Sales Trend',
-                        font: { size: getTitleSize(), weight: 'bold', color: colors.primary }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => {
-                                return `Sales: ₱${context.parsed.y.toLocaleString()}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        title: { display: true, text: 'Date', color: colors.primary }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(47, 90, 52, 0.1)' },
-                        title: { display: true, text: 'Amount (PHP)', color: colors.primary },
-                        ticks: {
-                            callback: (value) => `₱${value.toLocaleString()}`,
-                            color: colors.primary
-                        }
-                    }
-                }
-            }
-        });
-
-        // Pie Chart: Delivery Status
-        const deliveryChartCtx = document.getElementById('deliveryChart').getContext('2d');
-        const deliveryCounts = {
-            'Pending': 0,
-            'In Transit': 0,
-            'Delivered': 0
-        };
-
-        deliveryData.forEach(d => {
-            deliveryCounts[d.delivery_status]++;
-        });
-
-        new Chart(deliveryChartCtx, {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(deliveryCounts),
-                datasets: [{
-                    data: Object.values(deliveryCounts),
-                    backgroundColor: [
-                        colors.danger,    // Red for Pending
-                        colors.warning,   // Orange for In Transit
-                        colors.accent     // Green for Delivered
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                ...commonOptions,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Delivery Status Distribution',
-                        font: { size: getTitleSize(), weight: 'bold', color: colors.primary }
-                    },
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: colors.primary
-                        }
-                    }
-                }
-            }
-        });
-
-        // Radar Chart: Growth Forecast
-        const forecastChartCtx = document.getElementById('forecastChart')?.getContext('2d');
-        if (forecastChartCtx && forecastData.length > 0) {
-            let metrics = {};
-            try {
-                metrics = forecastData[0].report_data;
-                console.log('Growth metrics:', metrics);
+        console.log('Fetching chart data...');
+        
+        try {
+            // Fetch data for charts with timeout and retry
+            const timeout = 10000; // 10 seconds
+            const maxRetries = 3;
+            
+            const fetchWithRetry = async (url, retries = 0) => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
                 
-                // Find the maximum value to set the scale
-                const maxValue = Math.ceil(Math.max(...Object.values(metrics)) / 10) * 10;
+                try {
+                    const response = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log(`[${url}] Response:`, data);
+                    
+                    // Validate data structure
+                    if (!data || (typeof data === 'object' && !data.success && !data.data)) {
+                        throw new Error(`Invalid data format from ${url}`);
+                    }
+                    
+                    return data;
+                } catch (error) {
+                    console.error(`[${url}] Fetch error (attempt ${retries + 1}):`, error);
+                    
+                    if (retries < maxRetries) {
+                        console.log(`Retrying ${url}... (${retries + 1}/${maxRetries})`);
+                        return fetchWithRetry(url, retries + 1);
+                    }
+                    throw error;
+                }
+            };
+
+            // Fetch all data
+            const [productsResponse, salesResponse, deliveriesResponse, forecastResponse] = await Promise.all([
+                fetchWithRetry('/api/products'),
+                fetchWithRetry('/api/sales'),
+                fetchWithRetry('/api/deliveries'),
+                fetchWithRetry('/api/forecasts')
+            ]);
+
+            // Create inventory chart
+            if (canvasElements.inventory && productsResponse && productsResponse.success) {
+                const products = productsResponse.data;
                 
-                new Chart(forecastChartCtx, {
-                    type: 'radar',
+                if (!Array.isArray(products)) {
+                    throw new Error('Products data is not an array');
+                }
+                
+                console.log('Creating inventory chart with data:', products);
+                
+                if (products.length === 0) {
+                    throw new Error('No product data available');
+                }
+
+                new Chart(canvasElements.inventory.getContext('2d'), {
+                    type: 'bar',
                     data: {
-                        labels: Object.keys(metrics),
+                        labels: products.map(p => p.product_name || 'Unknown'),
                         datasets: [{
-                            label: 'Growth Metrics (%)',
-                            data: Object.values(metrics),
-                            backgroundColor: 'rgba(47, 90, 52, 0.2)',
-                            borderColor: 'rgba(47, 90, 52, 0.8)',
-                            borderWidth: 2,
-                            pointBackgroundColor: 'rgba(47, 90, 52, 1)',
-                            pointRadius: 4
+                            label: 'Current Stock',
+                            data: products.map(p => parseInt(p.quantity_in_stock) || 0),
+                            backgroundColor: colors.secondary,
+                            borderColor: colors.primary,
+                            borderWidth: 1
                         }]
                     },
                     options: {
@@ -282,54 +128,50 @@ document.addEventListener('DOMContentLoaded', async () => {
                         plugins: {
                             title: {
                                 display: true,
-                                text: 'Growth Metrics',
+                                text: 'Product Inventory Levels',
                                 font: { size: getTitleSize(), weight: 'bold' }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return `${context.label}: ${context.raw.toFixed(1)}%`;
-                                    }
-                                }
                             }
                         },
                         scales: {
-                            r: {
+                            y: {
                                 beginAtZero: true,
-                                min: 0,
-                                max: maxValue,
-                                ticks: {
-                                    stepSize: maxValue / 5,
-                                    callback: (value) => `${value}%`
-                                },
-                                pointLabels: {
-                                    font: {
-                                        size: getFontSize(),
-                                        weight: 'bold'
-                                    }
+                                title: {
+                                    display: true,
+                                    text: 'Quantity in Stock'
                                 }
                             }
                         }
                     }
                 });
-            } catch (e) {
-                console.error('Error creating forecast chart:', e);
-                const container = forecastChartCtx.canvas.parentElement;
-                container.innerHTML = '<div class="alert alert-warning">Unable to display forecast data. Please try again later.</div>';
+                console.log('Inventory chart created successfully');
             }
-        } else {
-            console.error('Forecast chart context not found or no forecast data available');
-            if (forecastChartCtx) {
-                const container = forecastChartCtx.canvas.parentElement;
-                container.innerHTML = '<div class="alert alert-warning">No forecast data available</div>';
-            }
+
+            // Create other charts here...
+
+        } catch (error) {
+            console.error('Error fetching or processing data:', error);
+            document.querySelectorAll('.chart-container').forEach(container => {
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5>Error loading chart</h5>
+                        <p>${error.message}</p>
+                        <p>Time: ${new Date().toISOString()}</p>
+                        <small>Check browser console for more details</small>
+                    </div>
+                `;
+            });
         }
 
     } catch (error) {
-        console.error('Error initializing charts:', error);
-        // Add error handling UI feedback here
+        console.error('Chart initialization error:', error);
         document.querySelectorAll('.chart-container').forEach(container => {
-            container.innerHTML = '<div class="alert alert-danger">Error loading chart data. Please try refreshing the page.</div>';
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5>Chart initialization failed</h5>
+                    <p>${error.message}</p>
+                    <p>Time: ${new Date().toISOString()}</p>
+                </div>
+            `;
         });
     }
 });
