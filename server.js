@@ -7,26 +7,49 @@ const app = express();
 
 // Security middleware
 app.use((req, res, next) => {
+    // Security headers
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('Content-Security-Policy', "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'");
+    
+    // Content Security Policy
+    res.setHeader('Content-Security-Policy', [
+        "default-src 'self' https: data:",
+        "img-src 'self' https: data:",
+        "style-src 'self' https: 'unsafe-inline'",
+        "script-src 'self' https: 'unsafe-inline' 'unsafe-eval'",
+        "font-src 'self' https: data:",
+        "connect-src 'self' https:",
+        "frame-ancestors 'none'"
+    ].join('; '));
+
     next();
 });
 
-// Middleware
-app.use(cors());
+// CORS configuration
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? 'https://casadoragridashboard-production.up.railway.app'
+        : 'http://localhost:3001',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+
+// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from the public directory with caching
+// Serve static files from the public directory with proper headers
 app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: '1h',
-    setHeaders: (res, path) => {
-        if (path.endsWith('.css')) {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.css')) {
             res.setHeader('Content-Type', 'text/css');
         }
+        // Ensure all static files are served with correct cache control
+        res.setHeader('Cache-Control', 'public, max-age=3600');
     }
 }));
 
@@ -63,6 +86,10 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-    console.log(`API available at http://localhost:${PORT}/api`);
-    console.log('Environment:', process.env.NODE_ENV || 'development');
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    if (process.env.NODE_ENV === 'production') {
+        console.log('Production URL: https://casadoragridashboard-production.up.railway.app');
+    } else {
+        console.log(`Development URL: http://localhost:${PORT}`);
+    }
 }); 
